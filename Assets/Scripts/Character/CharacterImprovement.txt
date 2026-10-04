@@ -1,0 +1,316 @@
+============================================================
+角色模板化改造说明
+============================================================
+
+一、目前的功能（现状）
+------------------------------------------------------------
+
+1. 角色核心 Character
+   - 作为组合根，持有 CharacterConfig、CharacterMovement、CharacterAnimator、GroundChecker
+   - Awake 中初始化各组件
+   - FixedUpdate 中驱动地面检测、跳跃尝试、移动更新
+   - 已完成：基础组装与驱动
+   - 不足：空引用只警告不中断，下一行仍会崩溃
+
+2. 移动与跳跃 CharacterMovement
+   - 水平移动：输入轴、最大速度、加速度
+   - 跳跃：跳跃力、跳跃冷却、跳跃缓冲、土狼时间
+   - 朝向记录：Facing 属性
+   - 实现 ICharacterAnimatorSource，提供动画数据
+   - 已完成：移动、跳跃、手感辅助
+   - 不足：移动和跳跃耦合在一个类，动画数据源职责混杂
+
+3. 地面检测 GroundChecker
+   - OnTriggerEnter2D / OnTriggerExit2D 计数接触地面碰撞体
+   - IsGrounded 表示是否着地
+   - OnDisable 清空状态，适配对象池
+   - 已完成：基础地面检测
+   - 不足：OnEnable 不重新检测，对象池复用后可能一直 false
+
+4. 动画控制 CharacterAnimator
+   - 读取 ICharacterAnimatorSource
+   - 根据 IsGrounded、VerticalSpeed、IsMoving 解析 AnimState 枚举
+   - 通过 Animator.SetInteger("state", (int)state) 切动画
+   - 控制 SpriteRenderer.flipX 左右翻转
+   - OnDisable 重置为 Idle
+   - 已完成：基础动画切换与翻转
+   - 不足：枚举切状态无法扩展；攻击、受伤、死亡未接入
+
+5. 动画状态枚举 AnimState
+   - Idle、Moving、Jumping、Falling、Attacking、Hurt、Dead
+   - 已完成：定义
+   - 不足：Attacking、Hurt、Dead 从未被 ResolveState 返回
+
+6. 输入 PlayerInput
+   - 使用 Unity InputSystem
+   - 映射 Move、Jump、Crouch
+   - Move 调 SetMoveInput，Jump 调 RequestJump
+   - Attack 和 Crouch 为空实现
+   - 已完成：基础输入映射
+   - 不足：攻击、蹲下未完成；直接依赖 Character 具体类
+
+7. 数据配置 CharacterConfig
+   - ScriptableObject，菜单创建
+   - 移动：maxRunSpeed、runAcceleration
+   - 跳跃：jumpForce、jumpCooldown
+   - 手感：jumpBufferTime、coyoteTime
+   - 已完成：移动与跳跃配置
+   - 不足：无攻击、健康、冲刺等配置；单类会膨胀
+
+8. 角色属性 CharacterAttribute
+   - public int health、attack
+   - Start、Update 为空
+   - 已完成：仅字段
+   - 不足：无受伤、死亡、攻击逻辑；public 字段不规范
+
+9. 调试服务 DebugOutputService
+   - RunNullDebug 输出空引用警告
+   - 已完成：基础警告
+   - 不足：不传 gameObject 上下文，点击日志无法定位；不中断执行
+
+10. 接口 ICharacterAnimatorSource
+    - Facing、IsGrounded、IsMoving、VerticalSpeed
+    - 由 CharacterMovement 实现
+    - 已完成：基础动画数据协议
+    - 不足：接口会随功能膨胀，绑定在移动组件上
+
+
+二、目标功能（模板化后）
+------------------------------------------------------------
+
+总体目标：
+- 让有基础但不深入的 Unity 业余开发者，不需要重写基础逻辑，
+  只需添加自己的元素和内容，就能做出自己的游戏。
+- 核心层简单直接，拖拽即用；扩展层可选高级，按需启用。
+- 自带示例、编辑器工具、文档，降低上手成本。
+
+1. 核心层（必用，简单直接）
+   - CharacterMotor2D：水平移动、加速度、朝向
+   - CharacterJumper2D：跳跃、跳跃冷却、跳跃缓冲、土狼时间
+   - GroundSensor2D：地面检测，OnEnable 重新检测，对象池安全
+   - CharacterAnimationBridge：只写 Animator 参数，不做状态决策
+   - CharacterConfig：聚合配置，Inspector 中可见，带 Tooltip 与 Header
+   - Character：组合根，直接持有核心模块引用，直接调用，不用 Context
+   - 目标：业余开发者只学核心层即可完成移动、跳跃、动画、配置
+
+2. 扩展层（可选，高级）
+   - CharacterContext：模块注册与获取
+   - ICharacterModule：统一生命周期
+   - 事件总线 CharacterEventBus：跳跃、受伤、死亡、攻击命中、冲刺
+   - 逻辑状态机 CharacterStateMachine：Normal、Attack、Hurt、Dead、Dash
+   - StateMachineBehaviour：攻击判定、无敌帧、移动锁定
+   - asmdef 与命名空间：强制单向依赖
+   - 目标：多人协作或复杂功能时再启用，默认不强制
+
+3. 动画系统（Unity Animator 状态树为权威）
+   - 删除 AnimState 枚举与 SetInteger("state")
+   - 代码只写事实参数：Speed、VerticalVelocity、IsGrounded、IsDead
+   - 事件发生时写 Trigger：Jump、Attack、Hurt、Dash
+   - Animator 状态树决定 Idle、Move、Jump、Fall、Attack、Hurt、Dead
+   - 提供默认 Animator Controller，业余开发者可直接替换动画片段
+   - 提供参数表与 SMB 规范，动画师可独立扩展
+   - 目标：加动画状态不改代码，代码与动画协议稳定
+
+4. 基础逻辑补齐
+   - 攻击：攻击请求、命中判定、攻击力、连击窗口
+   - 受伤：生命值、受伤事件、击退、无敌帧
+   - 死亡：死亡事件、死亡动画、禁用输入
+   - 蹲下：可选，默认提供简单实现
+   - 目标：模板自带完整可玩角色，业余开发者只需调整
+
+5. 示例内容
+   - 玩家角色：移动、跳跃、攻击、受伤、死亡
+   - 敌人：简单 AI、巡逻、追击、攻击
+   - UI：血条、死亡界面
+   - 关卡：平台、陷阱、终点
+   - 示例技能：冲刺，展示加模块、加状态、加订阅的完整流程
+   - 示例敌人：飞行敌人，展示复用传感器与移动模块
+   - 目标：开发者照着示例改，就能做出自己的内容
+
+6. 编辑器工具
+   - 一键创建新角色：生成 Prefab、挂组件、创建 Config
+   - 一键创建新动画状态：生成 Animator 参数与空状态
+   - 一键创建新模块：生成模板代码并注册
+   - Config 字段 Tooltip 与 Header 分组
+   - 目标：降低手工配置成本，减少漏拖引用
+
+7. 健壮性与错误提示
+   - 所有 SerializeField 引用在 Awake/OnValidate 自动查找
+   - 检查失败时 LogError 并 enabled = false，不继续执行
+   - 提供 RequireComponent 与 OnValidate 自动补全
+   - 目标：业余开发者漏拖引用时能明确知道问题，不崩溃
+
+8. 文档与教程
+   - 《10 分钟上手》：导入、打开示例场景、运行
+   - 《如何加一个新技能》：步骤 + 截图 + 代码
+   - 《如何加一个新敌人》：步骤 + 截图 + 代码
+   - 《Animator 参数表》：参数名、类型、含义、谁写
+   - 《事件总线清单》：事件名、载荷、触发时机
+   - 《常见错误排查》：空引用、动画不播、事件不触发
+   - 《什么时候不需要新架构》：单人原型直接用核心层
+   - 目标：文档齐全，模板自带学习路径
+
+9. 模板使用方式（给业余开发者）
+   - 只想做简单平台跳跃：只用核心层，直接改 Config、换动画
+   - 想加新技能：参考冲刺示例，加模块、加参数、加状态
+   - 想加新敌人：参考飞行敌人，复用传感器与移动模块
+   - 想加音效/VFX/UI：订阅事件总线，不改逻辑代码
+   - 想多人协作：启用扩展层，按 asmdef 与命名空间规范开发
+   - 目标：用到哪学到哪，不强制理解整套架构
+
+
+三、怎么修改（从现状到目标）
+------------------------------------------------------------
+
+阶段 1：修复现有问题，补齐基础逻辑
+- 修复空引用：Character、CharacterAnimator、PlayerInput 判空后 return 或 enabled = false
+- GroundSensor2D 增加 OnEnable 时 Physics2D.OverlapCollider 重新检测
+- CharacterAttribute 拆分为 CharacterHealth 与 CharacterAttacker
+- 实现攻击、受伤、死亡基础逻辑，使用事件通知表现层
+- 删除空的 Start、Update、空方法
+- 目的：让模板先能稳定运行，不崩溃
+
+阶段 2：拆分核心层模块
+- CharacterMovement 拆为 CharacterMotor2D 与 CharacterJumper2D
+- 新增 CharacterAnimationBridge，替代 CharacterAnimator
+- 删除 AnimState 枚举，改为 AnimationParams 常量
+- Character 直接持有 Motor、Jumper、GroundSensor、AnimationBridge
+- 默认不使用 Context、事件总线、逻辑状态机
+- 目的：核心层简单直接，业余开发者容易理解
+
+阶段 3：改造动画系统
+- 创建默认 Animator Controller：
+  - Locomotion：Idle、Move（Blend Tree）、JumpStart、JumpLoop、Fall、Land
+  - Combat：Attack1 → Attack2 → Attack3、Dash
+  - Reaction：Hurt、Dead
+- 参数：Speed、VerticalVelocity、IsGrounded、IsDead、Jump、Attack、Hurt、Dash
+- CharacterAnimationBridge 每帧只写事实参数，事件时写 Trigger
+- 攻击判定帧、无敌帧、移动锁定用 StateMachineBehaviour
+- 提供参数表与 SMB 规范文档
+- 目的：动画师可独立扩展，代码不改
+
+阶段 4：配置拆分与聚合
+- CharacterConfig 拆为：
+  - MovementConfig、JumpConfig、AttackConfig、HealthConfig、DashConfig
+- CharacterConfig 聚合引用各子 Config
+- 每个字段加 Tooltip 与 Header
+- 目的：策划可独立调数值，不同角色可组合
+
+阶段 5：事件总线（扩展层，可选）
+- 新增 CharacterEventBus 与 CharacterEvents
+- 事件：OnJumped、OnDamaged、OnDied、OnAttackHit、OnDashed
+- 音频、VFX、UI 通过订阅事件接入
+- 默认不启用，文档说明何时开启
+- 目的：新增表现零改动既有代码
+
+阶段 6：逻辑状态机（扩展层，可选）
+- 新增 CharacterStateMachine：
+  - NormalState、AttackState、HurtState、DeadState、DashState
+- 逻辑状态机管权限：CanMove、CanJump、CanAttack
+- Animator 状态树管表现：播哪个动画
+- 默认不启用，复杂功能时再引入
+- 目的：逻辑与表现彻底分离
+
+阶段 7：输入抽象（扩展层，可选）
+- PlayerInput 改为 ICharacterInput 意图抽象
+- PlayerInputProvider 产生 MoveIntent、JumpIntent、AttackIntent、DashIntent
+- 为 AIInputProvider 预留
+- 默认保留直接调用方式，简单项目不用抽象
+- 目的：玩家、AI、回放可复用
+
+阶段 8：示例内容
+- 玩家角色：完整移动、跳跃、攻击、受伤、死亡
+- 敌人：巡逻、追击、攻击
+- UI：血条、死亡界面
+- 关卡：平台、陷阱、终点
+- 示例技能：冲刺
+- 示例敌人：飞行敌人
+- 目的：开发者照着示例改，就能做出自己的内容
+
+阶段 9：编辑器工具
+- 一键创建新角色
+- 一键创建新动画状态
+- 一键创建新模块
+- 自动查找引用与补全
+- 目的：降低手工配置成本
+
+阶段 10：文档与教程
+- 《10 分钟上手》
+- 《如何加一个新技能》
+- 《如何加一个新敌人》
+- 《Animator 参数表》
+- 《事件总线清单》
+- 《常见错误排查》
+- 《什么时候不需要新架构》
+- 目的：模板自带学习路径，降低上手成本
+
+阶段 11：命名空间与程序集（扩展层，可选）
+- 统一命名空间：Game.Character.*
+- 添加 asmdef：Core、Modules、Presentation、Data
+- 强制单向依赖
+- 默认不强制，多人协作时启用
+- 目的：编译隔离，大项目可维护
+
+阶段 12：验证模板可用性
+- 用核心层做一个简单平台跳跃角色
+- 用示例技能加一个冲刺
+- 用示例敌人加一个飞行敌人
+- 用事件总线加一个受击音效
+- 用文档让新人 10 分钟上手
+- 目的：验证“不需要重写基础逻辑，只需添加自己的元素和内容”
+
+
+四、最终模板结构（目标）
+------------------------------------------------------------
+
+Assets/
+├── CharacterTemplate/
+│   ├── Core/                    // 核心层，必用，简单直接
+│   │   ├── Character.cs
+│   │   ├── CharacterMotor2D.cs
+│   │   ├── CharacterJumper2D.cs
+│   │   ├── GroundSensor2D.cs
+│   │   ├── CharacterAnimationBridge.cs
+│   │   └── CharacterConfig.cs
+│   ├── Extensions/              // 扩展层，可选，高级
+│   │   ├── Context/
+│   │   ├── Events/
+│   │   ├── StateMachine/
+│   │   └── Behaviours/
+│   ├── Examples/                // 示例内容
+│   │   ├── Player/
+│   │   ├── Enemies/
+│   │   ├── UI/
+│   │   └── Level/
+│   ├── Editor/                  // 编辑器工具
+│   │   ├── CharacterCreator.cs
+│   │   ├── AnimationStateCreator.cs
+│   │   └── ModuleCreator.cs
+│   └── Documentation/           // 文档与教程
+│       ├── 01_GettingStarted.md
+│       ├── 02_AddNewSkill.md
+│       ├── 03_AddNewEnemy.md
+│       ├── 04_AnimatorParams.md
+│       ├── 05_EventBus.md
+│       └── 06_Troubleshooting.md
+
+
+五、总结
+------------------------------------------------------------
+
+旧架构：代码决定一切，组件互相直接调用，动画靠枚举切状态。
+目标模板：核心层简单直接，扩展层可选高级，动画用 Unity 状态树，
+          自带示例、工具、文档，业余开发者只需添加自己的内容。
+
+改造本质：
+1. 修复空引用与对象池问题，让模板先稳定运行
+2. 拆分核心层与扩展层，简单需求用简单方式
+3. 动画权威交给 Animator 状态树，代码只写事实参数
+4. 补齐攻击、受伤、死亡、敌人、UI、关卡等基础内容
+5. 提供示例、编辑器工具、文档，降低上手成本
+6. 扩展层按需启用，不强制业余开发者理解商业架构
+
+最终目的：
+让有基础但不深入的 Unity 业余开发者，不需要重写基础逻辑，
+只需添加自己的元素和内容，就能做出自己的游戏。
+============================================================
