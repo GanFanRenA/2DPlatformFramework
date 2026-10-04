@@ -10,18 +10,19 @@ public class Character : MonoBehaviour, ICharacterAnimatorSource
     [SerializeField] private CharacterConfig config;
     [SerializeField] private CharacterMotor2D motor;
     [SerializeField] private CharacterJumper2D jumper;
-    [SerializeField] private CharacterAnimator animator;
+    [SerializeField] private CharacterAnimationBridge animationBridge;
     [SerializeField] private GroundChecker groundCheck;
 
     public CharacterMotor2D Motor => motor;
     public CharacterJumper2D Jumper => jumper;
-    public CharacterAnimator Animator => animator;
+    public CharacterAnimationBridge AnimationBridge => animationBridge;
 
     // ---- ICharacterAnimatorSource ----
     public float Facing => motor != null ? motor.Facing : 1f;
     public bool IsGrounded => jumper != null && jumper.IsGrounded;
-    public bool IsMoving => motor != null && Mathf.Abs(motor.HorizontalSpeed) > 0.1f;
+    public float HorizontalSpeed => motor != null ? motor.HorizontalSpeed : 0f;
     public float VerticalSpeed => jumper != null ? jumper.VerticalSpeed : 0f;
+    public bool IsMoving => Mathf.Abs(HorizontalSpeed) > 0.1f;
 
     private bool _initialized;
 
@@ -38,7 +39,7 @@ public class Character : MonoBehaviour, ICharacterAnimatorSource
         if (motor == null) { DebugOutputService.RunNullFatal(gameObject, nameof(motor)); ok = false; }
         if (jumper == null) { DebugOutputService.RunNullFatal(gameObject, nameof(jumper)); ok = false; }
         if (groundCheck == null) { DebugOutputService.RunNullFatal(gameObject, nameof(groundCheck)); ok = false; }
-        if (animator == null) { DebugOutputService.RunNullFatal(gameObject, nameof(animator)); ok = false; }
+        if (animationBridge == null) { DebugOutputService.RunNullFatal(gameObject, nameof(animationBridge)); ok = false; }
 
         if (!ok)
         {
@@ -48,7 +49,7 @@ public class Character : MonoBehaviour, ICharacterAnimatorSource
 
         motor.Initialize(config);
         jumper.Initialize(config);
-        animator.Initialize(this);   // 关键：把 Character 自己作为动画数据源
+        animationBridge.Initialize(this, jumper);
 
         _initialized = true;
     }
@@ -57,11 +58,6 @@ public class Character : MonoBehaviour, ICharacterAnimatorSource
     {
         if (!_initialized) return;
 
-        // 顺序很重要：
-        // 1. 从地面检测写入着地状态
-        // 2. 更新计时器（冷却 / 预输入 / 土狼）
-        // 3. 尝试跳跃
-        // 4. 应用水平移动
         jumper.SetGrounded(groundCheck.IsGrounded);
         jumper.TickTimers(Time.fixedDeltaTime);
         jumper.TryPerformJump();

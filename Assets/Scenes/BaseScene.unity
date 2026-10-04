@@ -244,11 +244,11 @@ MonoBehaviour:
   m_GameObject: {fileID: 133950028}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 585ca50dad44964488b0c791ec583297, type: 3}
+  m_Script: {fileID: 11500000, guid: c23f9ce9c897ecb49bd98d98e64d8e16, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::CharacterAnimator
-  spriteRenderer: {fileID: 133950030}
-  animator: {fileID: 133950031}
+  m_EditorClassIdentifier: Assembly-CSharp::CharacterAnimationBridge
+  _animator: {fileID: 133950031}
+  _spriteRenderer: {fileID: 133950030}
 --- !u!1 &292059053
 GameObject:
   m_ObjectHideFlags: 0
@@ -2234,7 +2234,7 @@ MonoBehaviour:
   config: {fileID: 11400000, guid: b5554bf4d0fc78341a47f7ce182c0655, type: 2}
   motor: {fileID: 1721170441}
   jumper: {fileID: 1721170440}
-  animator: {fileID: 133950032}
+  animationBridge: {fileID: 133950032}
   groundCheck: {fileID: 292059056}
 --- !u!50 &1721170438
 Rigidbody2D:

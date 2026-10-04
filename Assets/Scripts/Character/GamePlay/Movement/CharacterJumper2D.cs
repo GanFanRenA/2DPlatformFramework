@@ -27,6 +27,9 @@ public class CharacterJumper2D : MonoBehaviour
     private float _coyoteTimer;         // 土狼时间
     private bool _ready;
 
+    // 事件，供动画层、音效层订阅
+    public event System.Action JumpPerformed;
+
     public void Initialize(CharacterConfig config)
     {
         _config = config;
@@ -57,6 +60,8 @@ public class CharacterJumper2D : MonoBehaviour
         _jumpCooldownTimer = _config.jumpCooldown;
         _jumpBufferTimer = 0f;
         _coyoteTimer = 0f;
+
+        JumpPerformed?.Invoke();
         return true;
     }
 
