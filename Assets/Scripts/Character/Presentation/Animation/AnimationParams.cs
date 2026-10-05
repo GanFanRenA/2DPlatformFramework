@@ -6,18 +6,15 @@ using UnityEngine;
 /// </summary>
 public static class AnimationParams
 {
-    // ---- 事实参数：每帧写入 ----
-    /// <summary>归一化水平速度，0 ~ 1</summary>
+    // 事实参数
     public static readonly int Speed = Animator.StringToHash("Speed");
-    /// <summary>原始垂直速度，正值上升，负值下落</summary>
     public static readonly int VerticalVelocity = Animator.StringToHash("VerticalVelocity");
-    /// <summary>是否着地</summary>
     public static readonly int IsGrounded = Animator.StringToHash("IsGrounded");
+    public static readonly int IsDead = Animator.StringToHash("IsDead");
 
-    // ---- 事件参数：发生时写入 ----
-    /// <summary>跳跃触发</summary>
+    // 事件参数
     public static readonly int Jump = Animator.StringToHash("Jump");
-
-    // 后续步骤会加：
-    // Attack, Hurt, Dead, Dash
+    public static readonly int Attack = Animator.StringToHash("Attack");
+    public static readonly int Hurt = Animator.StringToHash("Hurt");
+    public static readonly int Dash = Animator.StringToHash("Dash");
 }

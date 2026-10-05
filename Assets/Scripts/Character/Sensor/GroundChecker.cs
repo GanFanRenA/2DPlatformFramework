@@ -1,4 +1,5 @@
 using UnityEngine;
+using Service.Diagnostics;
 
 /// <summary>
 /// 该代码为角色的地面检测组件，负责判断角色是否接触地面
@@ -18,12 +19,17 @@ public class GroundChecker : MonoBehaviour
     {
         // 第一次挂到物体上时自动抓取本物体的 Collider2D
         sensorCollider = GetComponent<Collider2D>();
+        groundLayer = 1 << LayerMask.NameToLayer("Ground");
     }
 
     private void Awake()
     {
+        if (sensorCollider == null) sensorCollider = GetComponent<Collider2D>();
         if (sensorCollider == null)
-            sensorCollider = GetComponent<Collider2D>();
+        {
+            DebugOutputService.RunNullOptional(gameObject, "Collider2D", "GroundChecker 已禁用");
+            enabled = false;
+        }
     }
 
     private void OnEnable()

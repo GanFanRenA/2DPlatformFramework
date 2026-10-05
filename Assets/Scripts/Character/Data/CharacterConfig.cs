@@ -1,19 +1,21 @@
 using UnityEngine;
+
 /// <summary>
-/// 该代码为角色的配置数据，包含移动、跳跃及手感辅助参数
+/// 角色总配置。聚合移动、跳跃、攻击、健康等子配置。
+/// 新增模块只需在这里加一行引用，不改 Character 的结构。
 /// </summary>
 [CreateAssetMenu(fileName = "CharacterConfig", menuName = "Platformer/CharacterConfig")]
 public class CharacterConfig : ScriptableObject
 {
-    [Header("移动")]
-    public float maxRunSpeed = 10f;
-    public float runAcceleration = 60f;
+    [SerializeField] private MovementConfig _movement;
+    [SerializeField] private JumpConfig _jump;
+    [SerializeField] private AttackConfig _attack;
+    [SerializeField] private HealthConfig _health;
+    [SerializeField] private DashConfig _dash;
 
-    [Header("跳跃")]
-    public float jumpForce = 14f;
-    public float jumpCooldown = 0.2f;
-
-    [Header("手感辅助")]
-    public float jumpBufferTime = 0.1f;
-    public float coyoteTime = 0.1f;
+    public MovementConfig Movement => _movement;
+    public JumpConfig Jump => _jump;
+    public AttackConfig Attack => _attack;
+    public HealthConfig Health => _health;
+    public DashConfig Dash => _dash;
 }

@@ -34,6 +34,8 @@ public class PlayerInput : MonoBehaviour
         inputControl.Player.Jump.performed += OnJump;
         inputControl.Player.Crouch.performed += OnCrouch;
         inputControl.Player.Crouch.canceled += OnCrouch;
+        inputControl.Player.Dash.performed += OnDash;
+        inputControl.Player.Attack.performed += OnAttack;
     }
 
     private void OnDisable()
@@ -45,6 +47,8 @@ public class PlayerInput : MonoBehaviour
         inputControl.Player.Jump.performed -= OnJump;
         inputControl.Player.Crouch.performed -= OnCrouch;
         inputControl.Player.Crouch.canceled -= OnCrouch;
+        inputControl.Player.Dash.performed -= OnDash;
+        inputControl.Player.Attack.performed -= OnAttack;
         inputControl.Player.Disable();
     }
 
@@ -62,11 +66,17 @@ public class PlayerInput : MonoBehaviour
 
     private void OnAttack(InputAction.CallbackContext ctx)
     {
-        // TODO: 攻击未实现
+        if (player == null || player.Attacker == null) return;
+        player.Attacker.RequestAttack();
     }
 
     private void OnCrouch(InputAction.CallbackContext ctx)
     {
         // TODO: 蹲下未实现
+    }
+    private void OnDash(InputAction.CallbackContext ctx)
+    {
+        if (player == null || player.Dash == null || player.Motor == null) return;
+        player.Dash.RequestDash(player.Motor.Facing);
     }
 }

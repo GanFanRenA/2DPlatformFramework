@@ -1,4 +1,5 @@
 using UnityEngine;
+using Service.Diagnostics;
 
 /// <summary>
 /// 角色的跳跃组件，负责跳跃力、冷却、预输入、土狼时间与着地状态
@@ -8,6 +9,7 @@ public class CharacterJumper2D : MonoBehaviour
 {
     /// <summary>当前是否着地（由 Character 每帧从 GroundChecker 写入）</summary>
     public bool IsGrounded { get; private set; }
+    public bool InputLocked { get; set; }
 
     /// <summary>当前垂直速度（只读）</summary>
     public float VerticalSpeed => _rb != null ? _rb.linearVelocity.y : 0f;
@@ -19,9 +21,9 @@ public class CharacterJumper2D : MonoBehaviour
         _jumpBufferTimer > 0f &&
         (IsGrounded || _coyoteTimer > 0f);
 
-    [SerializeField] private Rigidbody2D _rb;
+    private Rigidbody2D _rb;
 
-    private CharacterConfig _config;
+    private JumpConfig _config;
     private float _jumpCooldownTimer;   // 跳跃冷却
     private float _jumpBufferTimer;     // 预输入
     private float _coyoteTimer;         // 土狼时间
@@ -30,13 +32,23 @@ public class CharacterJumper2D : MonoBehaviour
     // 事件，供动画层、音效层订阅
     public event System.Action JumpPerformed;
 
-    public void Initialize(CharacterConfig config)
+    public void Initialize(JumpConfig config)
     {
+        if (config == null)
+        {
+            DebugOutputService.RunNullOptional(gameObject, "JumpConfig", "CharacterJumper2D 已禁用");
+            enabled = false;
+            return;
+        }
         _config = config;
         if (_rb == null) _rb = GetComponent<Rigidbody2D>();
 
-        if (_rb == null || _config == null) return;
-
+        if (_rb == null)
+        {
+            DebugOutputService.RunNullOptional(gameObject, "Rigidbody2D", "CharacterJumper2D 已禁用");
+            enabled = false;
+            return;
+        }
         ResetJumpTimers();
         _ready = true;
     }
@@ -47,7 +59,7 @@ public class CharacterJumper2D : MonoBehaviour
     /// <summary>由输入层调用，请求跳跃</summary>
     public void RequestJump()
     {
-        if (!_ready) return;
+        if (InputLocked || !_ready) return;
         _jumpBufferTimer = _config.jumpBufferTime;
     }
 

@@ -2,65 +2,99 @@ using UnityEngine;
 using Service.Diagnostics;
 
 /// <summary>
-/// 该代码为所有角色的核心组件，负责初始化角色的各个子组件并作为根访问类，不进行具体操作
+/// 角色核心组件。作为可选模块注册表：挂了就初始化，没挂就跳过。
+/// 不强制任何模块，缺配置只禁用对应模块，不影响整个角色。
 /// </summary>
+[DefaultExecutionOrder(-100)]
 public class Character : MonoBehaviour, ICharacterAnimatorSource
 {
-    [Header("Character Components")]
+    [Header("Config")]
     [SerializeField] private CharacterConfig config;
-    [SerializeField] private CharacterMotor2D motor;
-    [SerializeField] private CharacterJumper2D jumper;
-    [SerializeField] private CharacterAnimationBridge animationBridge;
-    [SerializeField] private GroundChecker groundCheck;
 
-    public CharacterMotor2D Motor => motor;
-    public CharacterJumper2D Jumper => jumper;
-    public CharacterAnimationBridge AnimationBridge => animationBridge;
+    // ---- 可选模块（自动查找，不强制拖引用）----
+    public CharacterMotor2D Motor { get; private set; }
+    public CharacterJumper2D Jumper { get; private set; }
+    public CharacterHealth Health { get; private set; }
+    public CharacterAttacker Attacker { get; private set; }
+    public CharacterDash Dash { get; private set; }
+    public CharacterAnimationBridge AnimationBridge { get; private set; }
+    public GroundChecker GroundCheck { get; private set; }
+    public HitboxController Hitbox { get; private set; }
 
-    // ---- ICharacterAnimatorSource ----
-    public float Facing => motor != null ? motor.Facing : 1f;
-    public bool IsGrounded => jumper != null && jumper.IsGrounded;
-    public float HorizontalSpeed => motor != null ? motor.HorizontalSpeed : 0f;
-    public float VerticalSpeed => jumper != null ? jumper.VerticalSpeed : 0f;
+    // ---- ICharacterAnimatorSource（缺失模块返回安全默认值）----
+    public float Facing => Motor != null ? Motor.Facing : 1f;
+    public bool IsGrounded => Jumper != null && Jumper.IsGrounded;
+    public float HorizontalSpeed => Motor != null ? Motor.HorizontalSpeed : 0f;
+    public float VerticalSpeed => Jumper != null ? Jumper.VerticalSpeed : 0f;
     public bool IsMoving => Mathf.Abs(HorizontalSpeed) > 0.1f;
 
-    private bool _initialized;
+    private Rigidbody2D _rb;
 
     private void Awake()
     {
+        // 自动查找所有可选模块
+        Motor = GetComponent<CharacterMotor2D>();
+        Jumper = GetComponent<CharacterJumper2D>();
+        Health = GetComponent<CharacterHealth>();
+        Attacker = GetComponent<CharacterAttacker>();
+        Dash = GetComponent<CharacterDash>();
+        AnimationBridge = GetComponent<CharacterAnimationBridge>();
+        GroundCheck = GetComponentInChildren<GroundChecker>(true);
+        Hitbox = GetComponentInChildren<HitboxController>(true);
+
+        _rb = GetComponent<Rigidbody2D>();
+
         Initialize();
     }
 
     private void Initialize()
     {
-        bool ok = true;
+        // config 为 null 时，所有需要 config 的模块会自我禁用，Character 本身不报错
+        MovementConfig movementConfig = config != null ? config.Movement : null;
+        JumpConfig jumpConfig = config != null ? config.Jump : null;
+        AttackConfig attackConfig = config != null ? config.Attack : null;
+        HealthConfig healthConfig = config != null ? config.Health : null;
+        DashConfig dashConfig = config != null ? config.Dash : null;
 
-        if (config == null) { DebugOutputService.RunNullFatal(gameObject, nameof(config)); ok = false; }
-        if (motor == null) { DebugOutputService.RunNullFatal(gameObject, nameof(motor)); ok = false; }
-        if (jumper == null) { DebugOutputService.RunNullFatal(gameObject, nameof(jumper)); ok = false; }
-        if (groundCheck == null) { DebugOutputService.RunNullFatal(gameObject, nameof(groundCheck)); ok = false; }
-        if (animationBridge == null) { DebugOutputService.RunNullFatal(gameObject, nameof(animationBridge)); ok = false; }
+        // 每个模块单独初始化，互不影响
+        Motor?.Initialize(movementConfig);
+        Jumper?.Initialize(jumpConfig);
+        Health?.Initialize(healthConfig, _rb);
+        Attacker?.Initialize(attackConfig);
+        Dash?.Initialize(dashConfig, _rb);
+        Hitbox?.Initialize(attackConfig);
 
-        if (!ok)
+        // 动画桥需要知道所有模块，可空
+        if (AnimationBridge != null)
         {
-            enabled = false;
-            return;
+            AnimationBridge.Initialize(this, Jumper, Attacker, Health, Dash, movementConfig);
         }
-
-        motor.Initialize(config);
-        jumper.Initialize(config);
-        animationBridge.Initialize(this, jumper);
-
-        _initialized = true;
     }
 
     private void FixedUpdate()
     {
-        if (!_initialized) return;
+        // 地面检测 → 跳跃组件
+        if (GroundCheck != null && Jumper != null)
+            Jumper.SetGrounded(GroundCheck.IsGrounded);
 
-        jumper.SetGrounded(groundCheck.IsGrounded);
-        jumper.TickTimers(Time.fixedDeltaTime);
-        jumper.TryPerformJump();
-        motor.MoveTick(Time.fixedDeltaTime);
+        // 计时器与冲刺
+        Jumper?.TickTimers(Time.fixedDeltaTime);
+        Dash?.Tick(Time.fixedDeltaTime);
+
+        // 输入锁定：任何模块要求锁，就锁
+        bool locked =
+            (Health != null && Health.IsDead) ||
+            (Attacker != null && Attacker.IsAttacking) ||
+            (Dash != null && Dash.IsDashing);
+
+        if (Motor != null) Motor.InputLocked = locked;
+        if (Jumper != null) Jumper.InputLocked = locked;
+
+        // 未锁定时执行移动与跳跃
+        if (!locked)
+        {
+            Jumper?.TryPerformJump();
+            Motor?.MoveTick(Time.fixedDeltaTime);
+        }
     }
 }
