@@ -6,7 +6,7 @@ using UnityEngine;
 /// </summary>
 public class HitboxController : MonoBehaviour
 {
-    private AttackConfig _config;
+    [SerializeField] private AttackConfig _config;
 
     private readonly Collider2D[] _results = new Collider2D[8];
     private readonly HashSet<CharacterHealth> _hitTargets = new HashSet<CharacterHealth>();
