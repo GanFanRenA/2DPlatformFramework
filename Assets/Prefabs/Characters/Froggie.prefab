@@ -194,8 +194,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0637d6f8654b4604f8eca62baf380d89, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::FrogController
+  _debugLog: 1
   _config: {fileID: 11400000, guid: db47f1e90ee76854689abfe0289d57d7, type: 2}
-  _debugLog: 0
 --- !u!1 &3111460498902638225
 GameObject:
   m_ObjectHideFlags: 0
@@ -319,8 +319,8 @@ SpriteRenderer:
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
   m_GlobalIlluminationMeshLod: 0
-  m_SortingLayerID: 0
-  m_SortingLayer: 0
+  m_SortingLayerID: -797094029
+  m_SortingLayer: 2
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_Sprite: {fileID: 21300000, guid: 86ca59b9bca0e409b9ba2784fbe69f01, type: 3}

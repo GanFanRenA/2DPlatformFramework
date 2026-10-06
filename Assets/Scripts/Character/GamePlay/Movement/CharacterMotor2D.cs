@@ -42,10 +42,16 @@ public class CharacterMotor2D : MonoBehaviour
         _ready = true;
     }
 
+    /// <summary>直接设置朝向，用于空中 / 动画驱动等场景</summary>
+    public void SetFacing(float facing)
+    {
+        if (Mathf.Abs(facing) < 0.01f) return;
+        Facing = Mathf.Sign(facing);
+    }
+
     /// <summary>由输入层调用，设置水平输入轴（-1 ~ 1）</summary>
     public void SetMoveInput(float axis)
     {
-        if (InputLocked) axis = 0f;
         _moveInput = Mathf.Clamp(axis, -1f, 1f);
     }
 
@@ -53,6 +59,7 @@ public class CharacterMotor2D : MonoBehaviour
     public void MoveTick(float deltaTime)
     {
         if (!_ready) return;
+        if (InputLocked) return;
 
         ApplyHorizontal(deltaTime);
         UpdateFacing();

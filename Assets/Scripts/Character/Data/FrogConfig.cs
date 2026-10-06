@@ -1,17 +1,11 @@
 using UnityEngine;
 
-/// <summary>
-/// 青蛙敌人配置：跳跃节奏、追击范围、伤害开关
-/// </summary>
 [CreateAssetMenu(fileName = "FrogConfig", menuName = "Platformer/FrogConfig")]
 public class FrogConfig : ScriptableObject
 {
     [Header("节奏（秒）")]
     [Tooltip("两次跳跃之间的等待时间")]
     public float idleDuration = 1.5f;
-
-    [Tooltip("起跳前的前摇，用于转向和加速")]
-    public float windupDuration = 0.25f;
 
     [Tooltip("落地后的硬直时间")]
     public float landingDuration = 0.5f;
@@ -23,8 +17,21 @@ public class FrogConfig : ScriptableObject
     [Tooltip("水平距离小于此值时不移动，直接垂直跳")]
     public float deadZone = 0.4f;
 
-    [Tooltip("空中水平输入保持系数，0 = 垂直跳，1 = 全速水平移动")]
-    [Range(0f, 1f)] public float airControl = 1f;
+    [Header("跳跃")]
+    [Tooltip("起跳瞬间的水平速度。0 = 垂直跳，越大跳得越远")]
+    public float horizontalJumpSpeed = 6f;
+
+    [Tooltip("下降阶段重力倍率。1 = 与上升相同，1.5~2.5 = 下落更快，更利落")]
+    [Range(1f, 3f)] public float fallMultiplier = 1.8f;
+
+    [Tooltip("上升阶段重力倍率。0.7~0.9 = 上升更飘，滞空感更强")]
+    [Range(0.5f, 1f)] public float riseMultiplier = 0.85f;
+
+    [Tooltip("空中水平速度每秒衰减量。0 = 不衰减，越大越快停下来")]
+    [Range(0f, 10f)] public float airDrag = 2f;
+
+    [Tooltip("顶点水平速度倍率。到抛物线顶点时水平速度乘以这个值")]
+    [Range(0.5f, 1f)] public float apexSpeedMultiplier = 0.85f;
 
     [Header("伤害开关")]
     [Tooltip("上升阶段（Jump）是否造成伤害")]
